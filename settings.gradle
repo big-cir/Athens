@@ -1,1 +1,4 @@
 rootProject.name = 'athens'
+include 'athens-api'
+include 'athens-support'
+

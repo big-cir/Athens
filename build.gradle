@@ -3,140 +3,68 @@ plugins {
     id 'org.springframework.boot' version '3.2.5'
     id 'io.spring.dependency-management' version '1.1.4'
     id 'com.google.cloud.tools.jib' version '3.4.2'
-    //id 'checkstyle'
-    id 'jacoco'
 }
 
-group = 'com.attica'
-version = '0.0.1-SNAPSHOT'
+// jar 파일 생성 방지
+bootJar.enabled = false
 
-java {
-    sourceCompatibility = '17'
-}
+allprojects {
+    group = 'com.attica'
+    version = '0.0.1-SNAPSHOT'
 
-configurations {
-    compileOnly {
-        extendsFrom annotationProcessor
+    repositories {
+        mavenCentral()
     }
 }
 
-repositories {
-    mavenCentral()
-}
+sourceCompatibility = '17'
 
-dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'com.mysql:mysql-connector-j'
-    annotationProcessor 'org.projectlombok:lombok'
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
+// 하위 모듈에 반영되는 부분
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'com.google.cloud.tools.jib'
 
-    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
-    implementation 'io.jsonwebtoken:jjwt-impl:0.12.3'
-    implementation 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter'
 
-    implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
-    annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
-    annotationProcessor "jakarta.annotation:jakarta.annotation-api"
-    annotationProcessor "jakarta.persistence:jakarta.persistence-api"
-    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor"
+        annotationProcessor 'org.projectlombok:lombok'
 
-    implementation 'org.springframework.boot:spring-boot-starter-websocket'
-    implementation 'org.springframework.security:spring-security-messaging'
+        compileOnly 'org.projectlombok:lombok'
 
-    implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.0'
-    implementation 'io.github.vaneproject:badwordfiltering:1.0.0'
-    implementation 'org.springframework.boot:spring-boot-starter-quartz'
-
-    implementation 'io.micrometer:micrometer-core:1.11.0'
-    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
-    implementation 'org.springframework:spring-aop'
-    implementation 'org.springframework.cloud:spring-cloud-starter-aws:2.2.6.RELEASE'
-
-    implementation 'org.ahocorasick:ahocorasick:0.6.3'
-    // oauth2
-    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
-
-    // redis
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.security:spring-security-test'
-    testImplementation 'com.h2database:h2'
-}
-
-tasks.named('test') {
-    useJUnitPlatform()
-    finalizedBy('jacocoTestReport')
-}
-
-jacocoTestReport {
-    reports {
-        html {
-            required.set(true)
-            outputLocation.set(file("build/reports/jacocoHtml"))
-        }
-        xml.required.set(false)
-        csv.required.set(false)
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
     }
-}
-//
-//jacocoTestCoverageVerification {
-//
-//    violationRules {
-//        rule {
-//            element = 'CLASS'
-//
-//            limit {
-//                counter = 'BRANCH'
-//                value = 'COVEREDRATIO'
-//                minimum = 0.8 // 80% 이상 커버리지가 되어야 빌드 성공
-//            }
-//        }
-//    }
-//}
 
-
-tasks.bootJar {
-    enabled = false
-}
-
-tasks.jar {
-    enabled = true
-}
-
-if (project.hasProperty('prod')) {
-    jib {
-        from {
-            image = "eclipse-temurin:17-jdk"
-        }
-        to {
-            image = System.getProperty('jib.to.image')
-            tags = ["latest"]
-        }
-        container {
-            creationTime = "USE_CURRENT_TIMESTAMP"
-
-            jvmFlags = ["-Dspring.profiles.active=prod", "-Duser.timezone=Asia/Seoul"]
-
-            setAllowInsecureRegistries(true)
-        }
+    tasks.named('test') {
+        useJUnitPlatform()
     }
 }
 
-compileJava.options.encoding = 'UTF-8'
-compileTestJava.options.encoding = 'UTF-8'
+project(':athens-api') {
+    if (project.hasProperty('prod')) {
+        jib {
+            from {
+                image = "eclipse-temurin:17-jdk"
+            }
+            to {
+                image = System.getProperty('jib.to.image')
+                tags = ["latest"]
+            }
+            container {
+                mainClass = 'com.attica.athens.AthensApiApplication'
+                creationTime = "USE_CURRENT_TIMESTAMP"
 
-//tasks.withType(Checkstyle) {
-//    reports {
-//        xml.required = true
-//        html.required = true
-//    }
-//}
-//
-//checkstyle {
-//    configFile = file("config/checkstyle/google-checkstyle.xml")
-//    configProperties = ["suppressionFile": "config/checkstyle/google-checkstyle.xml"]
-//}
+                jvmFlags = ["-Dspring.profiles.active=local", "-Duser.timezone=Asia/Seoul"]
+
+                setAllowInsecureRegistries(true)
+            }
+        }
+    }
+
+    dependencies {
+        implementation project(path: ':athens-support', configuration: 'default')
+    }
+}
